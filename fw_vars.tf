@@ -121,3 +121,7 @@ variable "imageOffer" {
 variable "ubuntuOSVersion" {
   default = "16.04-LTS"
 }
+
+variable "ubuntuOSVersion2" {
+  default = "16.04-LTS"
+}

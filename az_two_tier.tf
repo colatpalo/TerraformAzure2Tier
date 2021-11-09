@@ -1,5 +1,5 @@
 /*
-Using the AzCLI, accept the offer terms prior to deployment. This only
+Using the AzCLI, accept the offer terms prior to deployment. This really only
 need to be done once per subscription
 ```
 az vm image terms accept --urn paloaltonetworks:vmseries1:bundle2:latest
