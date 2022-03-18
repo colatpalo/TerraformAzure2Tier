@@ -1,4 +1,6 @@
 azure_provider.tf
+terraform.tfstate
+terraform.tfstate.backup
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
