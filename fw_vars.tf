@@ -1,12 +1,16 @@
-variable "resource_group_name" {}
-variable "location" {}
 
-variable "StorageAccountName" {}
+variable "StorageAccountName" {
+  default = "PAN_FW_STG_AC"
+}
+
 variable "FirewallDnsName" {}
 variable "WebServerDnsName" {}
 variable "FirewallVmName" {}
 variable "FirewallVmSize" {}
-variable "FromGatewayLogin" {}
+variable "FromGatewayLogin" {
+  default = "0.0.0.0/0"
+}
+
 
 variable "storageAccountType" {
   default = "Standard_LRS"
@@ -83,11 +87,15 @@ variable "fwSku" {
 }
 
 variable "fwOffer" {
-  default = "vmseries1"
+  default = "vmseries-flex"
 }
 
 variable "fwPublisher" {
   default = "paloaltonetworks"
+}
+
+variable "FWOsVersion" {
+  default = "10.1.4"
 }
 
 variable "adminUsername" {
@@ -107,7 +115,7 @@ variable "db-vm-name" {
 }
 
 variable "gvmSize" {
-  default = "Standard_B1s"
+  default = "Standard_A1"
 }
 
 variable "imagePublisher" {
@@ -119,9 +127,5 @@ variable "imageOffer" {
 }
 
 variable "ubuntuOSVersion" {
-  default = "16.04-LTS"
-}
-
-variable "ubuntuOSVersion2" {
   default = "16.04-LTS"
 }

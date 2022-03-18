@@ -1,15 +1,12 @@
 /*
-Using the AzCLI, accept the offer terms prior to deployment. This really only
+Using the AzCLI, accept the offer terms prior to deployment. This only
 need to be done once per subscription
 ```
 az vm image terms accept --urn paloaltonetworks:vmseries1:bundle2:latest
+az vm image list --all --publisher paloaltonetworks will tell you the various versions, we prob want 
+az vm image terms accept --urn paloaltonetworks:vmseries-flex:byol:10.1.4 as of March 18th 2022
 ```
-
-
-provider "azurerm" {
-  version = "=2.13.0"
-  features {}
-}
+*/
 
 
 resource "azurerm_resource_group" "PAN_FW_RG" {
@@ -17,25 +14,9 @@ resource "azurerm_resource_group" "PAN_FW_RG" {
   location = var.location
 }
 
-*/
-
-data "azurerm_resource_group" "PAN_FW_RG" {
-  name = "WestEuropeCgRg1"
-}
-
-/*
 resource "azurerm_storage_account" "PAN_FW_STG_AC" {
-  name = join("", list(var.StorageAccountName, substr(md5("${data.azurerm_resource_group.PAN_FW_RG}"), 0, 4)))
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG}"
-  location = var.location
-  account_replication_type = "LRS"
-  account_tier = "Standard" 
-}
-*/
-
-resource "azurerm_storage_account" "PAN_FW_STG_AC" {
-  name = join("", list(var.StorageAccountName, substr(md5("${data.azurerm_resource_group.PAN_FW_RG.name}"), 0, 4)))
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  name = join("", tolist([var.StorageAccountName, substr(md5(azurerm_resource_group.PAN_FW_RG.id), 0, 4)]))
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
   location = var.location
   account_replication_type = "LRS"
   account_tier = "Standard" 
@@ -44,23 +25,23 @@ resource "azurerm_storage_account" "PAN_FW_STG_AC" {
 resource "azurerm_public_ip" "PublicIP_0" {
   name = var.fwpublicIPName
   location = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
   allocation_method = var.publicIPAddressType
-  domain_name_label = join("", list(var.FirewallDnsName, substr(md5("${data.azurerm_resource_group.PAN_FW_RG.name}"), 0, 4)))
+  domain_name_label = join("", tolist([var.FirewallDnsName, substr(md5(azurerm_resource_group.PAN_FW_RG.id), 0, 4)]))
 }
 
 resource "azurerm_public_ip" "PublicIP_1" {
   name = var.WebPublicIPName
   location = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
   allocation_method = var.publicIPAddressType
-  domain_name_label = join("", list(var.WebServerDnsName, substr(md5("${data.azurerm_resource_group.PAN_FW_RG.name}"), 0, 4)))
+  domain_name_label = join("", tolist([var.WebServerDnsName, substr(md5(azurerm_resource_group.PAN_FW_RG.id), 0, 4)]))
 }
 
 resource "azurerm_network_security_group" "PAN_FW_NSG" {
   name                = "DefaultNSG"
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
 
   security_rule {
     name                       = "Allow-Outside-From-IP"
@@ -82,7 +63,7 @@ resource "azurerm_network_security_group" "PAN_FW_NSG" {
     protocol                   = "*"
     source_port_range          = "*"
     destination_port_range     = "*"
-    source_address_prefix      = join("", list(var.IPAddressPrefix, ".0.0/16"))
+    source_address_prefix      = join("", tolist([var.IPAddressPrefix, ".0.0/16"]))
     destination_address_prefix = "*"
   }
 
@@ -142,13 +123,13 @@ resource "azurerm_network_security_group" "PAN_FW_NSG" {
 resource "azurerm_route_table" "PAN_FW_RT_Trust" {
   name                = var.routeTableTrust
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
 
   route {
     name           = "Trust-to-intranetwork"
     address_prefix = "0.0.0.0/0"
     next_hop_type  = "VirtualAppliance"
-    next_hop_in_ip_address = join("", list(var.IPAddressPrefix, ".2.4"))
+    next_hop_in_ip_address = join("", tolist([var.IPAddressPrefix, ".2.4"]))
   }
 
   tags = {
@@ -159,20 +140,20 @@ resource "azurerm_route_table" "PAN_FW_RT_Trust" {
 resource "azurerm_route_table" "PAN_FW_RT_Web" {
   name                = var.routeTableWeb
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
 
   route {
     name           = "Web-to-Firewall-DB"
-    address_prefix = join("", list(var.IPAddressPrefix, ".4.0/24"))
+    address_prefix = join("", tolist([var.IPAddressPrefix, ".4.0/24"]))
     next_hop_type  = "VirtualAppliance"
-    next_hop_in_ip_address = join("", list(var.IPAddressPrefix, ".2.4"))
+    next_hop_in_ip_address = join("", tolist([var.IPAddressPrefix, ".2.4"]))
   }
 
   route {
     name           = "Web-default-route"
     address_prefix = "0.0.0.0/0"
     next_hop_type  = "VirtualAppliance"
-    next_hop_in_ip_address = join("", list(var.IPAddressPrefix, ".2.4"))
+    next_hop_in_ip_address = join("", tolist([var.IPAddressPrefix, ".2.4"]))
   }
 
   tags = {
@@ -183,20 +164,20 @@ resource "azurerm_route_table" "PAN_FW_RT_Web" {
 resource "azurerm_route_table" "PAN_FW_RT_DB" {
   name                = var.routeTableDB
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
 
   route {
     name           = "DB-to-Firewall-Web"
-    address_prefix = join("", list(var.IPAddressPrefix, ".3.0/24"))
+    address_prefix = join("", tolist([var.IPAddressPrefix, ".3.0/24"]))
     next_hop_type  = "VirtualAppliance"
-    next_hop_in_ip_address = join("", list(var.IPAddressPrefix, ".2.4"))
+    next_hop_in_ip_address = join("", tolist([var.IPAddressPrefix, ".2.4"]))
   }
 
   route {
     name           = "DB-default-route"
     address_prefix = "0.0.0.0/0"
     next_hop_type  = "VirtualAppliance"
-    next_hop_in_ip_address = join("", list(var.IPAddressPrefix, ".2.4"))
+    next_hop_in_ip_address = join("", tolist([var.IPAddressPrefix, ".2.4"]))
   }
 
   tags =  {
@@ -205,9 +186,9 @@ resource "azurerm_route_table" "PAN_FW_RT_DB" {
 }
 
 resource "azurerm_virtual_network" "PAN_FW_VNET" {
-  name                = join("", list(var.vnetName, substr(md5("${data.azurerm_resource_group.PAN_FW_RG.name}"), 0, 4)))
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  address_space       = [join("", list(var.IPAddressPrefix, ".0.0/16"))]
+  name                = join("", tolist([var.vnetName, substr(md5(azurerm_resource_group.PAN_FW_RG.id), 0, 4)]))
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  address_space       = [join("", tolist([var.IPAddressPrefix, ".0.0/16"]))]
   location            = var.location
 
   tags = {
@@ -215,33 +196,22 @@ resource "azurerm_virtual_network" "PAN_FW_VNET" {
   }
 }
 
-
 resource "azurerm_subnet" "PAN_FW_Subnet0" {
   name           = var.subnet0Name
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  address_prefix = join("", list(var.IPAddressPrefix, ".0.0/24"))
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  address_prefix = join("", tolist([var.IPAddressPrefix, ".0.0/24"]))
   virtual_network_name = azurerm_virtual_network.PAN_FW_VNET.name
 }
-/*
 
-data "azurerm_subnet" "PAN_FW_Subnet0" {
-  name           = var.subnet0Name
-  virtual_network_name = azurerm_virtual_network.PAN_FW_VNET.name
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-}
-*/
-
-/*
 resource "azurerm_subnet_network_security_group_association" "example" {
   subnet_id                 = azurerm_subnet.PAN_FW_Subnet0.id
   network_security_group_id = azurerm_network_security_group.PAN_FW_NSG.id
 }
-*/
 
 resource "azurerm_subnet" "PAN_FW_Subnet1" {
   name           = var.subnet1Name
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  address_prefix = join("", list(var.IPAddressPrefix, ".1.0/24"))
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  address_prefix = join("", tolist([var.IPAddressPrefix, ".1.0/24"]))
   virtual_network_name = azurerm_virtual_network.PAN_FW_VNET.name
 }
 
@@ -252,22 +222,22 @@ resource "azurerm_subnet_network_security_group_association" "example1" {
 
 resource "azurerm_subnet" "PAN_FW_Subnet3" {
   name           = var.subnet3Name
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  address_prefix = join("", list(var.IPAddressPrefix, ".3.0/24"))
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  address_prefix = join("", tolist([var.IPAddressPrefix, ".3.0/24"]))
   virtual_network_name = azurerm_virtual_network.PAN_FW_VNET.name
 }
 
 resource "azurerm_subnet" "PAN_FW_Subnet4" {
   name           = var.subnet4Name
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  address_prefix = join("", list(var.IPAddressPrefix, ".4.0/24"))
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  address_prefix = join("", tolist([var.IPAddressPrefix, ".4.0/24"]))
   virtual_network_name = azurerm_virtual_network.PAN_FW_VNET.name
 }
 
 resource "azurerm_subnet" "PAN_FW_Subnet2" {
   name           = var.subnet2Name
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  address_prefix = join("", list(var.IPAddressPrefix, ".2.0/24"))
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  address_prefix = join("", tolist([var.IPAddressPrefix, ".2.0/24"]))
   virtual_network_name = azurerm_virtual_network.PAN_FW_VNET.name
 }
 
@@ -276,122 +246,98 @@ resource "azurerm_subnet_route_table_association" "example2" {
   route_table_id            = azurerm_route_table.PAN_FW_RT_Trust.id
 }
 
-
 resource "azurerm_network_interface" "VNIC0" {
-  name                = join("", list("FW", var.nicName, "0"))
+  name                = join("", tolist(["FW", var.nicName, "0"]))
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  depends_on          = ["azurerm_virtual_network.PAN_FW_VNET",
-                          "azurerm_public_ip.PublicIP_0"]
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  depends_on          = [azurerm_virtual_network.PAN_FW_VNET,
+                          azurerm_public_ip.PublicIP_0]
 
   ip_configuration {
-    name                          = join("", list("ipconfig", "0"))
+    name                          = join("", tolist(["ipconfig", "0"]))
     subnet_id                     = azurerm_subnet.PAN_FW_Subnet0.id
     private_ip_address_allocation = "static"
-    private_ip_address = join("", list(var.IPAddressPrefix, ".0.4"))
+    private_ip_address = join("", tolist([var.IPAddressPrefix, ".0.4"]))
     public_ip_address_id = azurerm_public_ip.PublicIP_0.id
   }
 
   tags = {
-    displayName = join("", list("NetworkInterfaces", "0"))
+    displayName = join("", tolist(["NetworkInterfaces", "0"]))
   }
 }
 
-
-
-/*
-resource "azurerm_network_interface" "VNIC0" {
-  name                = join("", list("FW", var.nicName, "0"))
-  location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  depends_on          = ["azurerm_virtual_network.PAN_FW_VNET",
-                          "azurerm_public_ip.PublicIP_0"]
-
-  ip_configuration {
-    name                          = join("", list("ipconfig", "0"))
-    subnet_id                     = "${data.azurerm_subnet.PAN_FW_Subnet0.id}"
-    private_ip_address_allocation = "static"
-    private_ip_address = join("", list(var.IPAddressPrefix, ".0.4"))
-    public_ip_address_id = azurerm_public_ip.PublicIP_0.id
-  }
-
-  tags = {
-    displayName = join("", list("NetworkInterfaces", "0"))
-  }
-}
-*/
 resource "azurerm_network_interface" "VNIC1" {
-  name                = join("", list("FW", var.nicName, "1"))
+  name                = join("", tolist(["FW", var.nicName, "1"]))
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  depends_on          = ["azurerm_virtual_network.PAN_FW_VNET"]
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  depends_on          = [azurerm_virtual_network.PAN_FW_VNET]
 
   enable_ip_forwarding = true
   ip_configuration {
-    name                          = join("", list("ipconfig", "1"))
+    name                          = join("", tolist(["ipconfig", "1"]))
     subnet_id                     = azurerm_subnet.PAN_FW_Subnet1.id
     private_ip_address_allocation = "static"
-    private_ip_address = join("", list(var.IPAddressPrefix, ".1.4"))
+    private_ip_address = join("", tolist([var.IPAddressPrefix, ".1.4"]))
     public_ip_address_id = azurerm_public_ip.PublicIP_1.id
   }
 
   tags =  {
-    displayName = join("", list("NetworkInterfaces", "1"))
+    displayName = join("", tolist(["NetworkInterfaces", "1"]))
   }
 }
 
 resource "azurerm_network_interface" "VNIC2" {
-  name                = join("", list("FW", var.nicName, "2"))
+  name                = join("", tolist(["FW", var.nicName, "2"]))
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
-  depends_on          = ["azurerm_virtual_network.PAN_FW_VNET"]
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
+  depends_on          = [azurerm_virtual_network.PAN_FW_VNET]
 
   enable_ip_forwarding = true
   ip_configuration {
-    name                          = join("", list("ipconfig", "2"))
+    name                          = join("", tolist(["ipconfig", "2"]))
     subnet_id                     = azurerm_subnet.PAN_FW_Subnet2.id
     private_ip_address_allocation = "static"
-    private_ip_address = join("", list(var.IPAddressPrefix, ".2.4"))
+    private_ip_address = join("", tolist([var.IPAddressPrefix, ".2.4"]))
   }
 
   tags = {
-    displayName = join("", list("NetworkInterfaces", "2"))
+    displayName = join("", tolist(["NetworkInterfaces", "2"]))
   }
 }
 
 resource "azurerm_network_interface" "VNIC0_Web" {
-  name                = join("", list("Web", var.nicName, "0"))
+  name                = join("", tolist(["Web", var.nicName, "0"]))
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
   depends_on          = ["azurerm_virtual_network.PAN_FW_VNET"]
 
   ip_configuration {
-    name                          = join("", list("ipconfig", "3"))
+    name                          = join("", tolist(["ipconfig", "3"]))
     subnet_id                     = azurerm_subnet.PAN_FW_Subnet3.id
     private_ip_address_allocation = "static"
-    private_ip_address = join("", list(var.IPAddressPrefix, ".3.5"))
+    private_ip_address = join("", tolist([var.IPAddressPrefix, ".3.5"]))
   }
 
   tags = {
-    displayName = join("", list("NetworkInterfaces", "3"))
+    displayName = join("", tolist(["NetworkInterfaces", "3"]))
   }
 }
 
 resource "azurerm_network_interface" "VNIC0_DB" {
-  name                = join("", list("DB", var.nicName, "0"))
+  name                = join("", tolist(["DB", var.nicName, "0"]))
   location            = var.location
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
   depends_on          = ["azurerm_virtual_network.PAN_FW_VNET"]
 
   ip_configuration {
-    name                          = join("", list("ipconfig", "4"))
+    name                          = join("", tolist(["ipconfig", "4"]))
     subnet_id                     = azurerm_subnet.PAN_FW_Subnet4.id
     private_ip_address_allocation = "static"
-    private_ip_address = join("", list(var.IPAddressPrefix, ".4.5"))
+    private_ip_address = join("", tolist([var.IPAddressPrefix, ".4.5"]))
   }
 
   tags = {
-    displayName = join("", list("NetworkInterfaces", "4"))
+    displayName = join("", tolist(["NetworkInterfaces", "4"]))
   }
 }
 
@@ -399,7 +345,7 @@ resource "azurerm_network_interface" "VNIC0_DB" {
 resource "azurerm_virtual_machine" "PAN_FW_FW" {
   name                  = var.FirewallVmName
   location              = var.location
-  resource_group_name   = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name   = azurerm_resource_group.PAN_FW_RG.name
   vm_size               = var.FirewallVmSize
 
   depends_on = ["azurerm_network_interface.VNIC0",
@@ -416,11 +362,11 @@ resource "azurerm_virtual_machine" "PAN_FW_FW" {
     publisher = var.fwPublisher
     offer     = var.fwOffer
     sku       = var.fwSku
-    version   = "latest"
+    version   = var.FWOsVersion
   }
 
   storage_os_disk {
-    name          = join("", list(var.FirewallVmName, "-osDisk"))
+    name          = join("", tolist([var.FirewallVmName, "-osDisk"]))
     vhd_uri       = "${azurerm_storage_account.PAN_FW_STG_AC.primary_blob_endpoint}vhds/${var.FirewallVmName}-${var.fwOffer}-${var.fwSku}.vhd"
     caching       = "ReadWrite"
     create_option = "FromImage"
@@ -446,7 +392,7 @@ resource "azurerm_virtual_machine" "PAN_FW_FW" {
 resource "azurerm_virtual_machine" "PAN_FW_Web" {
   name                  = var.web-vm-name
   location              = var.location
-  resource_group_name   = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name   = azurerm_resource_group.PAN_FW_RG.name
   vm_size               = var.gvmSize
 
   depends_on = ["azurerm_network_interface.VNIC0", "azurerm_network_interface.VNIC1",
@@ -486,7 +432,7 @@ resource "azurerm_virtual_machine" "PAN_FW_Web" {
 resource "azurerm_virtual_machine" "PAN_FW_DB" {
   name                  = var.db-vm-name
   location              = var.location
-  resource_group_name   = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name   = azurerm_resource_group.PAN_FW_RG.name
   vm_size               = var.gvmSize
 
   depends_on = ["azurerm_network_interface.VNIC0", "azurerm_network_interface.VNIC1",
@@ -548,7 +494,6 @@ resource "azurerm_virtual_machine_extension" "PAN_FW_WEB_EXT" {
   publisher            = "Microsoft.Azure.Extensions"
   type                 = "CustomScript"
   type_handler_version = "2.0"
-
   settings = <<SETTINGS
     {
       "fileUris": ["https://raw.githubusercontent.com/PaloAltoNetworks/azure/master/two-tier-sample/config-fw.py"],
@@ -574,7 +519,7 @@ SETTINGS
 
 resource "azurerm_template_deployment" "DBlinkedTemplate" {
   name                = "DBlinkedTemplate"
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
 
   depends_on = [
     "azurerm_virtual_machine_extension.PAN_FW_DB_EXT",
@@ -586,9 +531,9 @@ resource "azurerm_template_deployment" "DBlinkedTemplate" {
     "azurerm_route_table.PAN_FW_RT_DB"
   ]
   parameters = {
-    name = join("/", list(azurerm_virtual_network.PAN_FW_VNET.name, azurerm_subnet.PAN_FW_Subnet4.name))
+    name = join("/", tolist([azurerm_virtual_network.PAN_FW_VNET.name, azurerm_subnet.PAN_FW_Subnet4.name]))
     location = var.location
-    subnet4Prefix = join("", list(var.IPAddressPrefix, ".4.0/24"))
+    subnet4Prefix = join("", tolist([var.IPAddressPrefix, ".4.0/24"]))
     route_table_id = azurerm_route_table.PAN_FW_RT_DB.id
   }
 
@@ -632,15 +577,15 @@ DEPLOY
 
 resource "azurerm_template_deployment" "WeblinkedTemplate" {
   name                = "WeblinkedTemplate"
-  resource_group_name = "${data.azurerm_resource_group.PAN_FW_RG.name}"
+  resource_group_name = azurerm_resource_group.PAN_FW_RG.name
 
   depends_on = [
     "azurerm_template_deployment.DBlinkedTemplate"
   ]
   parameters = {
-    name = join("/", list(azurerm_virtual_network.PAN_FW_VNET.name,azurerm_subnet.PAN_FW_Subnet3.name))
+    name = join("/", tolist([azurerm_virtual_network.PAN_FW_VNET.name,azurerm_subnet.PAN_FW_Subnet3.name]))
     location = var.location
-    subnet3Prefix = join("", list(var.IPAddressPrefix, ".3.0/24"))
+    subnet3Prefix = join("", tolist([var.IPAddressPrefix, ".3.0/24"]))
     route_table_id = azurerm_route_table.PAN_FW_RT_Web.id
   }
 
@@ -683,17 +628,17 @@ DEPLOY
 }
 
 output "FirewallIP" {
-  value = join("", list("https://", azurerm_public_ip.PublicIP_0.ip_address))
+  value = join("", tolist(["https://", azurerm_public_ip.PublicIP_0.ip_address]))
 }
 
 output "FirewallFQDN" {
-  value = join("", list("https://", azurerm_public_ip.PublicIP_0.fqdn))
+  value = join("", tolist(["https://", azurerm_public_ip.PublicIP_0.fqdn]))
 }
 
 output "WebIP" {
-  value = join("", list("http://", azurerm_public_ip.PublicIP_1.ip_address))
+  value = join("", tolist(["http://", azurerm_public_ip.PublicIP_1.ip_address]))
 }
 
 output "WebFQDN" {
-  value = join("", list("http://", azurerm_public_ip.PublicIP_1.fqdn))
+  value = join("", tolist(["http://", azurerm_public_ip.PublicIP_1.fqdn]))
 }
