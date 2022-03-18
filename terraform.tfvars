@@ -1,0 +1,8 @@
+FirewallDnsName = "pan-fw"
+FirewallVmName = "vvPANW"
+FirewallVmSize = "Standard_D3_v2"
+FromGatewayLogin = "0.0.0.0/0"
+StorageAccountName = "vvstg11"
+WebServerDnsName = "pan-web"
+location = "westeurope"
+resource_group_name = "cg_Azure2Tier"
